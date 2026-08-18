@@ -47,6 +47,9 @@ recording_path: Path = c_state_dir / "record/recording.mp4"
 recording_notif_path: Path = c_state_dir / "record/notifid.txt"
 
 
+shell_config_path: Path = c_config_dir / "shell.json"
+
+
 def compute_hash(path: Path | str) -> str:
     sha = hashlib.sha256()
 
@@ -83,3 +86,57 @@ def get_config() -> dict[str, Any]:
     except FileNotFoundError:
         pass
     return {}
+
+
+def get_shell_config() -> dict[str, Any]:
+    try:
+        return json.loads(shell_config_path.read_text())
+    except (json.JSONDecodeError, FileNotFoundError):
+        pass
+    return {}
+
+
+def expand_user_path(p: str | Path) -> Path:
+    return Path(os.path.expanduser(str(p)))
+
+
+def get_wallpaper_engine_config() -> dict[str, Any]:
+    shell_cfg = get_shell_config()
+    bg_cfg = shell_cfg.get("background", {})
+    return bg_cfg.get("wallpaperEngine", {})
+
+
+def get_wallpaper_engine_assets_dir() -> Path | None:
+    we_cfg = get_wallpaper_engine_config()
+    if assets_str := we_cfg.get("assets"):
+        p = expand_user_path(assets_str)
+        if p.is_dir():
+            return p
+
+    candidates = [
+        data_dir / "Steam/steamapps/common/wallpaper_engine/assets",
+        Path.home() / ".steam/steam/steamapps/common/wallpaper_engine/assets",
+        Path.home() / ".local/share/Steam/steamapps/common/wallpaper_engine/assets",
+    ]
+    for c in candidates:
+        if c.is_dir():
+            return c
+    return None
+
+
+def get_wallpaper_engine_workshop_dir() -> Path | None:
+    we_cfg = get_wallpaper_engine_config()
+    if workshop_str := we_cfg.get("workshop"):
+        p = expand_user_path(workshop_str)
+        if p.is_dir():
+            return p
+
+    candidates = [
+        data_dir / "Steam/steamapps/workshop/content/431960",
+        Path.home() / ".steam/steam/steamapps/workshop/content/431960",
+        Path.home() / ".local/share/Steam/steamapps/workshop/content/431960",
+    ]
+    for c in candidates:
+        if c.is_dir():
+            return c
+    return None
