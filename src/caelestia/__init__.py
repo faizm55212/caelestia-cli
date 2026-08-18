@@ -10,7 +10,7 @@ def main() -> None:
             print_version()
         elif "cls" in args:
             args.cls(args).run()
-        else:
-            parser.print_help()
     except KeyboardInterrupt:
         log("Exiting...")
+    except BrokenPipeError:
+        pass
