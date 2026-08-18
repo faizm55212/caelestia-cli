@@ -1,7 +1,13 @@
 import json
 from argparse import Namespace
 
-from caelestia.utils.wallpaper import get_colours_for_wall, get_wallpaper, set_random, set_wallpaper
+from caelestia.utils.wallpaper import (
+    get_colours_for_wall,
+    get_wallpaper,
+    restore_wallpaper,
+    set_random,
+    set_wallpaper,
+)
 
 
 class Command:
@@ -11,7 +17,9 @@ class Command:
         self.args = args
 
     def run(self) -> None:
-        if self.args.print:
+        if self.args.restore:
+            restore_wallpaper(self.args.no_smart)
+        elif self.args.print:
             print(json.dumps(get_colours_for_wall(self.args.print, self.args.no_smart)))
         elif self.args.file:
             set_wallpaper(self.args.file, self.args.no_smart)

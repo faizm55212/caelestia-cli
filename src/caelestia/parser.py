@@ -105,6 +105,9 @@ def parse_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     wallpaper_parser = command_parser.add_parser("wallpaper", help="manage the wallpaper")
     wallpaper_parser.set_defaults(cls=wallpaper.Command)
     wallpaper_parser.add_argument(
+        "-R", "--restore", action="store_true", help="restore the current wallpaper (static or live)"
+    )
+    wallpaper_parser.add_argument(
         "-p", "--print", nargs="?", const=get_wallpaper(), metavar="PATH", help="print the scheme for a wallpaper"
     )
     wallpaper_parser.add_argument(
