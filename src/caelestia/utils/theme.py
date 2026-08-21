@@ -312,11 +312,13 @@ def apply_gtk(
 ) -> None:
     gtk_template = gen_replace(colours, templates_dir / "gtk.css", hash=True)
     thunar_template = gen_replace(colours, templates_dir / "thunar.css", hash=True)
+    nemo_template = gen_replace(colours, templates_dir / "nemo.css", hash=True)
 
     for gtk_version in ["gtk-3.0", "gtk-4.0"]:
         gtk_config_dir = config_dir / gtk_version
         atomic_write(gtk_config_dir / "gtk.css", gtk_template)
         atomic_write(gtk_config_dir / "thunar.css", thunar_template)
+        atomic_write(gtk_config_dir / "nemo.css", nemo_template)
 
     target_gtk_theme = gtk_theme if gtk_theme is not None else f"adw-gtk3-{mode}"
     subprocess.run(["dconf", "write", "/org/gnome/desktop/interface/gtk-theme", f"'{target_gtk_theme}'"])
