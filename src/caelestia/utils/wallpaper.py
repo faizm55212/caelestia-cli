@@ -2,7 +2,6 @@ import json
 import os
 import random
 import subprocess
-import time
 from argparse import Namespace
 from pathlib import Path
 from typing import Any, cast
@@ -19,6 +18,8 @@ from caelestia.utils.paths import (
     compute_hash,
     get_config,
     get_wallpaper_engine_assets_dir,
+    get_wallpaper_engine_config,
+    get_wallpaper_engine_workshop_dir,
     wallpaper_link_path,
     wallpaper_path_path,
     wallpaper_thumbnail_path,
@@ -70,17 +71,16 @@ def get_workshop_title(workshop_dir: Path) -> str:
             data = json.loads(proj.read_text(encoding="utf-8"))
             if title := data.get("title"):
                 return str(title).strip()
-        except Exception:
-            pass
+        except Exception as e:
+            warn(f'failed to parse "{proj}": {e}')
     return workshop_dir.name
 
 
 def stop_linux_wallpaperengine() -> None:
     try:
         subprocess.run(["pkill", "-9", "-f", "linux-wallpaperengine"], stderr=subprocess.DEVNULL)
-        time.sleep(0.05)
-    except Exception:
-        pass
+    except Exception as e:
+        warn(f"failed to stop linux-wallpaperengine: {e}")
 
 
 def apply_linux_wallpaperengine(item_path: Path) -> None:
@@ -96,8 +96,8 @@ def apply_linux_wallpaperengine(item_path: Path) -> None:
             for m in monitors:
                 if name := m.get("name"):
                     cmd.extend(["--screen-root", str(name), "--scaling", "fill"])
-    except Exception:
-        pass
+    except Exception as e:
+        warn(f"failed to get monitor layout: {e}")
 
     cmd.append(str(item_path))
     try:
@@ -126,6 +126,13 @@ def get_wallpaper() -> str | None:
 
 
 def get_wallpapers(args: Namespace) -> list[Path]:
+    we_cfg = get_wallpaper_engine_config()
+    if we_cfg.get("enabled", False):
+        if workshop_dir := get_wallpaper_engine_workshop_dir():
+            dirs = [d for d in workshop_dir.iterdir() if is_workshop_dir(d)]
+            if dirs:
+                return dirs
+
     directory = Path(args.random)
     if not directory.is_dir():
         return []
@@ -181,25 +188,55 @@ def get_smart_opts(wall: Path, cache: Path) -> dict:
     return opts
 
 
+def convert_gif(wall: Path) -> Path:
+    cache = wallpapers_cache_dir / compute_hash(wall)
+    output_path = cache / "first_frame.png"
+
+    if not output_path.exists():
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with Image.open(wall) as img:
+            n_frames = getattr(img, "n_frames", 1)
+            frame_idx = min(n_frames // 2, 5) if n_frames > 1 else 0
+            try:
+                img.seek(frame_idx)
+            except (EOFError, ValueError):
+                pass
+
+            img = img.convert("RGB")
+            img.save(output_path, "PNG")
+
+    return output_path
+
+
+def resolve_wallpaper_source(wall: Path | str) -> tuple[Path, Path, Path, bool]:
+    wall_path = Path(wall).resolve()
+    if is_workshop_dir(wall_path):
+        preview = get_workshop_preview(wall_path)
+        if not preview:
+            raise ValueError(f'"{wall_path}" is a workshop folder but contains no valid preview image')
+        theme_image = convert_gif(preview) if preview.suffix.lower() == ".gif" else preview
+        return wall_path, preview, theme_image, True
+
+    if not is_valid_image(wall_path):
+        raise ValueError(f'"{wall_path}" is not a valid image')
+
+    theme_image = convert_gif(wall_path) if wall_path.suffix.lower() == ".gif" else wall_path
+    return wall_path, wall_path, theme_image, False
+
+
 def get_colours_for_wall(wall: Path | str, no_smart: bool) -> dict | None:
-    wall = Path(wall).resolve()
-    if is_workshop_dir(wall):
-        preview = get_workshop_preview(wall)
-        if preview:
-            wall = preview
-        else:
-            return None
+    try:
+        _, _, theme_image, _ = resolve_wallpaper_source(wall)
+    except ValueError:
+        return None
 
     scheme = get_scheme()
-    cache = wallpapers_cache_dir / compute_hash(wall)
-
-    if wall.suffix.lower() == ".gif":
-        wall = convert_gif(wall)
+    cache = wallpapers_cache_dir / compute_hash(theme_image)
 
     name = "dynamic"
 
     if not no_smart:
-        smart_opts = get_smart_opts(wall, cache)
+        smart_opts = get_smart_opts(theme_image, cache)
         scheme = Scheme(
             {
                 "name": name,
@@ -215,106 +252,27 @@ def get_colours_for_wall(wall: Path | str, no_smart: bool) -> dict | None:
         "flavour": scheme.flavour,
         "mode": scheme.mode,
         "variant": scheme.variant,
-        "colours": get_colours_for_image(get_thumb(wall, cache), scheme),
+        "colours": get_colours_for_image(get_thumb(theme_image, cache), scheme),
     }
 
 
-def convert_gif(wall: Path) -> Path:
-    cache = wallpapers_cache_dir / compute_hash(wall)
-    output_path = cache / "first_frame.png"
-
-    if not output_path.exists():
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with Image.open(wall) as img:
-            try:
-                img.seek(0)
-            except EOFError:
-                pass
-
-            img = img.convert("RGB")
-            img.save(output_path, "PNG")
-
-    return output_path
-
-
 def set_wallpaper(wall: Path | str, no_smart: bool = False) -> None:
-    # Make path absolute
-    wall = Path(wall).resolve()
+    wall_path, preview, theme_image, is_workshop = resolve_wallpaper_source(wall)
 
-    if is_workshop_dir(wall):
-        preview = get_workshop_preview(wall)
-        if not preview:
-            raise ValueError(f'"{wall}" is a workshop folder but contains no valid preview image')
-
-        # Use preview image for theming and thumbnails
-        wall_cache = convert_gif(preview) if preview.suffix.lower() == ".gif" else preview
-
-        # Update files
-        wallpaper_path_path.parent.mkdir(parents=True, exist_ok=True)
-        wallpaper_path_path.write_text(str(wall))
-        wallpaper_link_path.parent.mkdir(parents=True, exist_ok=True)
-        wallpaper_link_path.unlink(missing_ok=True)
-        wallpaper_link_path.symlink_to(preview)
-
-        cache = wallpapers_cache_dir / compute_hash(wall_cache)
-
-        thumb = get_thumb(wall_cache, cache)
-        wallpaper_thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
-        wallpaper_thumbnail_path.unlink(missing_ok=True)
-        wallpaper_thumbnail_path.symlink_to(thumb)
-
-        scheme = get_scheme()
-
-        if scheme.name == "dynamic" and not no_smart:
-            smart_opts = get_smart_opts(wall_cache, cache)
-            scheme.mode = smart_opts["mode"]
-            scheme.variant = smart_opts["variant"]
-
-        scheme.update_colours()
-        apply_colours(scheme.colours, scheme.mode)
-
-        # Run custom post-hook if configured
-        cfg = get_config().get("wallpaper", {})
-        if post_hook := cfg.get("postHook"):
-            subprocess.run(
-                post_hook,
-                shell=True,
-                env={
-                    **os.environ,
-                    "WALLPAPER_PATH": str(wall),
-                    "PREVIEW_PATH": str(preview),
-                    "SCHEME_NAME": scheme.name,
-                    "SCHEME_FLAVOUR": scheme.flavour,
-                    "SCHEME_MODE": scheme.mode,
-                    "SCHEME_VARIANT": scheme.variant,
-                    "SCHEME_COLOURS": json.dumps(scheme.colours),
-                    "THUMBNAIL_PATH": str(thumb),
-                },
-                stderr=subprocess.DEVNULL,
-            )
-
-        apply_linux_wallpaperengine(wall)
-        return
-
-    if not is_valid_image(wall):
-        raise ValueError(f'"{wall}" is not a valid image')
-
-    stop_linux_wallpaperengine()
-
-    # Use gif's 1st frame for thumb only
-    wall_cache = convert_gif(wall) if wall.suffix.lower() == ".gif" else wall
+    if not is_workshop:
+        stop_linux_wallpaperengine()
 
     # Update files
     wallpaper_path_path.parent.mkdir(parents=True, exist_ok=True)
-    wallpaper_path_path.write_text(str(wall))
+    wallpaper_path_path.write_text(str(wall_path))
     wallpaper_link_path.parent.mkdir(parents=True, exist_ok=True)
     wallpaper_link_path.unlink(missing_ok=True)
-    wallpaper_link_path.symlink_to(wall)
+    wallpaper_link_path.symlink_to(theme_image if is_workshop else wall_path)
 
-    cache = wallpapers_cache_dir / compute_hash(wall_cache)
+    cache = wallpapers_cache_dir / compute_hash(theme_image)
 
     # Generate thumbnail or get from cache
-    thumb = get_thumb(wall_cache, cache)
+    thumb = get_thumb(theme_image, cache)
     wallpaper_thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
     wallpaper_thumbnail_path.unlink(missing_ok=True)
     wallpaper_thumbnail_path.symlink_to(thumb)
@@ -323,7 +281,7 @@ def set_wallpaper(wall: Path | str, no_smart: bool = False) -> None:
 
     # Change mode and variant based on wallpaper colour
     if scheme.name == "dynamic" and not no_smart:
-        smart_opts = get_smart_opts(wall_cache, cache)
+        smart_opts = get_smart_opts(theme_image, cache)
         scheme.mode = smart_opts["mode"]
         scheme.variant = smart_opts["variant"]
 
@@ -339,7 +297,8 @@ def set_wallpaper(wall: Path | str, no_smart: bool = False) -> None:
             shell=True,
             env={
                 **os.environ,
-                "WALLPAPER_PATH": str(wall),
+                "WALLPAPER_PATH": str(wall_path),
+                "PREVIEW_PATH": str(preview),
                 "SCHEME_NAME": scheme.name,
                 "SCHEME_FLAVOUR": scheme.flavour,
                 "SCHEME_MODE": scheme.mode,
@@ -349,6 +308,9 @@ def set_wallpaper(wall: Path | str, no_smart: bool = False) -> None:
             },
             stderr=subprocess.DEVNULL,
         )
+
+    if is_workshop:
+        apply_linux_wallpaperengine(wall_path)
 
 
 def restore_wallpaper(no_smart: bool = False) -> None:

@@ -114,9 +114,10 @@ def get_wallpaper_engine_assets_dir() -> Path | None:
             return p
 
     candidates = [
-        data_dir / "Steam/steamapps/common/wallpaper_engine/assets",
+        *([data_dir / "Steam/steamapps/common/wallpaper_engine/assets"] if os.environ.get("XDG_DATA_HOME") else []),
         Path.home() / ".steam/steam/steamapps/common/wallpaper_engine/assets",
         Path.home() / ".local/share/Steam/steamapps/common/wallpaper_engine/assets",
+        Path.home() / ".var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/wallpaper_engine/assets",
     ]
     for c in candidates:
         if c.is_dir():
@@ -132,9 +133,10 @@ def get_wallpaper_engine_workshop_dir() -> Path | None:
             return p
 
     candidates = [
-        data_dir / "Steam/steamapps/workshop/content/431960",
+        *([data_dir / "Steam/steamapps/workshop/content/431960"] if os.environ.get("XDG_DATA_HOME") else []),
         Path.home() / ".steam/steam/steamapps/workshop/content/431960",
         Path.home() / ".local/share/Steam/steamapps/workshop/content/431960",
+        Path.home() / ".var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/workshop/content/431960",
     ]
     for c in candidates:
         if c.is_dir():

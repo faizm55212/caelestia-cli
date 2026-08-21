@@ -11,6 +11,7 @@ class Score:
     WEIGHT_CHROMA_BELOW = 0.1
     CUTOFF_CHROMA = 5.0
     CUTOFF_EXCITED_PROPORTION = 0.01
+    FALLBACK_COLOR = 0xFF6750A4  # Material baseline purple
 
     def __init__(self):
         pass
@@ -63,8 +64,12 @@ class Score:
             if primary:
                 break
 
-        return DislikeAnalyzer.fix_if_disliked(primary) if primary else Score.score(colors_to_population, False)
+        if primary:
+            return DislikeAnalyzer.fix_if_disliked(primary)
+        if filter_enabled:
+            return Score.score(colors_to_population, False)
+        return Hct.from_int(Score.FALLBACK_COLOR)
 
 
 def score(image: str) -> Hct:
-    return Score.score(ImageQuantizeCelebi(image, 1, 128))
+    return Score.score(ImageQuantizeCelebi(image, 1, 128), True)
