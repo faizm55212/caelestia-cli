@@ -1,0 +1,130 @@
+/* Nemo Caelestia theme */
+
+/* =============================================================================
+   Window & Global Background
+   ============================================================================= */
+window.nemo-window,
+window.nemo-window.background,
+window.nemo-window grid,
+window.nemo-window paned,
+window.nemo-window .sidebar,
+window.nemo-window .titlebar,
+window.nemo-window headerbar,
+window.nemo-window toolbar.primary-toolbar,
+window.nemo-window menubar {
+    background: {{ $surface }};
+    background-color: {{ $surface }};
+    border: none;
+    box-shadow: none;
+}
+
+/* Paned separator */
+window.nemo-window paned > separator {
+    min-width: 4px;
+    margin-right: -4px;
+    margin-left: -4px;
+    background: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+/* =============================================================================
+   Main View Pane (Floating Card Container)
+   ============================================================================= */
+window.nemo-window .nemo-window-pane,
+window.nemo-window .nemo-window-pane scrolledwindow,
+window.nemo-window .nemo-window-pane .view,
+window.nemo-window .nemo-window-pane iconview,
+window.nemo-window .nemo-window-pane treeview {
+    background-color: {{ $surfaceContainerLow }};
+    border-radius: 15px;
+}
+
+window.nemo-window .nemo-window-pane {
+    padding: 10px;
+    margin: 6px 14px 10px 0;
+    background-color: {{ $surfaceContainerLow }};
+    border-radius: 15px;
+}
+
+window.nemo-window .nemo-window-pane iconview:selected,
+window.nemo-window .nemo-window-pane iconview *:selected {
+    color: {{ $primary }};
+    background-color: alpha({{ $primary }}, 0.15);
+    border-radius: 8px;
+}
+
+window.nemo-window .nemo-window-pane treeview:selected,
+window.nemo-window .nemo-window-pane treeview:selected:focus,
+window.nemo-window .nemo-window-pane .view:selected {
+    color: {{ $primary }};
+    background-color: alpha({{ $primary }}, 0.15);
+    border-radius: 0;
+}
+
+window.nemo-window .rubberband {
+    background-color: alpha({{ $primary }}, 0.15);
+    border: 1px solid alpha({{ $primary }}, 0.3);
+}
+
+/* =============================================================================
+   Sidebar Navigation
+   ============================================================================= */
+window.nemo-window .sidebar {
+    padding: 0 10px;
+    background-color: {{ $surface }};
+}
+
+window.nemo-window .sidebar treeview,
+window.nemo-window .sidebar .view,
+window.nemo-window .sidebar scrolledwindow {
+    background-color: transparent;
+    border-radius: 0;
+}
+
+window.nemo-window .sidebar treeview:hover,
+window.nemo-window .sidebar .view:hover {
+    background-color: alpha({{ $onSurface }}, 0.06);
+    border-radius: 0;
+}
+
+window.nemo-window .sidebar treeview:selected,
+window.nemo-window .sidebar treeview:selected:focus,
+window.nemo-window .sidebar .view:selected,
+window.nemo-window .sidebar .view:selected:focus {
+    background-color: alpha({{ $primary }}, 0.15);
+    color: {{ $primary }};
+    border-radius: 0;
+}
+
+/* =============================================================================
+   Path Bar & Location Buttons
+   ============================================================================= */
+window.nemo-window .path-bar button {
+    margin: 0 2px;
+    padding: 6px 14px;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+window.nemo-window .path-bar button:checked {
+    background-color: alpha({{ $primary }}, 0.2);
+    color: {{ $primary }};
+    box-shadow: none;
+}
+
+window.nemo-window .path-bar button:not(:checked):hover {
+    background-color: alpha({{ $primary }}, 0.08);
+    color: {{ $primary }};
+}
+
+/* =============================================================================
+   Statusbar
+   ============================================================================= */
+window.nemo-window statusbar {
+    background-color: {{ $surfaceContainerLow }};
+    border-radius: 12px;
+    padding: 4px 10px;
+    margin: 8px 14px 8px 0;
+    color: {{ $onSurface }};
+}
